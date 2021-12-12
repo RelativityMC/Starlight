@@ -54,6 +54,9 @@ public final class StarLightInterface {
 
     public final LevelLightEngine lightEngine;
 
+    private final boolean hasBlockLight;
+    private final boolean hasSkyLight;
+
     public StarLightInterface(final LightChunkGetter lightAccess, final boolean hasSkyLight, final boolean hasBlockLight, final LevelLightEngine lightEngine) {
         this.lightAccess = lightAccess;
         this.world = lightAccess == null ? null : (Level)lightAccess.getLevel();
@@ -72,6 +75,8 @@ public final class StarLightInterface {
             this.maxLightSection = WorldUtil.getMaxLightSection(this.world);
         }
         this.lightEngine = lightEngine;
+        this.hasBlockLight = hasBlockLight;
+        this.hasSkyLight = hasSkyLight;
         this.skyReader = !hasSkyLight ? LayerLightEventListener.DummyLightLayerEventListener.INSTANCE : new LayerLightEventListener() {
             @Override
             public void checkBlock(final BlockPos blockPos) {
@@ -180,6 +185,9 @@ public final class StarLightInterface {
     }
 
     protected int getSkyLightValue(final BlockPos blockPos, final ChunkAccess chunk) {
+        if (!this.hasSkyLight) {
+            return 0;
+        }
         final int x = blockPos.getX();
         int y = blockPos.getY();
         final int z = blockPos.getZ();
@@ -247,6 +255,9 @@ public final class StarLightInterface {
     }
 
     protected int getBlockLightValue(final BlockPos blockPos, final ChunkAccess chunk) {
+        if (!this.hasBlockLight) {
+            return 0;
+        }
         final int y = blockPos.getY();
         final int cy = y >> 4;
 
@@ -269,6 +280,10 @@ public final class StarLightInterface {
         final ChunkAccess chunk = this.getAnyChunkNow(pos.getX() >> 4, pos.getZ() >> 4);
 
         final int sky = this.getSkyLightValue(pos, chunk) - ambientDarkness;
+        // Don't fetch the block light level if the skylight level is 15, since the value will never be higher.
+        if (sky == 15) {
+            return 15;
+        }
         final int block = this.getBlockLightValue(pos, chunk);
         return Math.max(sky, block);
     }
