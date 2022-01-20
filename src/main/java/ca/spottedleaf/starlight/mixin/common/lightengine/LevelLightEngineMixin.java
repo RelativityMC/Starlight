@@ -11,6 +11,7 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.SectionPos;
 import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LightLayer;
 import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.chunk.DataLayer;
@@ -57,7 +58,12 @@ public abstract class LevelLightEngineMixin implements LightEventListener, StarL
     )
     public void construct(final LightChunkGetter chunkProvider, final boolean hasBlockLight, final boolean hasSkyLight,
                           final CallbackInfo ci) {
-        this.lightEngine = new StarLightInterface(chunkProvider, hasSkyLight, hasBlockLight, (LevelLightEngine)(Object)this);
+        // avoid ClassCastException in cases where custom LightChunkGetters do not return a Level from getLevel()
+        if (chunkProvider.getLevel() instanceof Level) {
+            this.lightEngine = new StarLightInterface(chunkProvider, hasSkyLight, hasBlockLight, (LevelLightEngine) (Object) this);
+        } else {
+            this.lightEngine = new StarLightInterface(null, hasSkyLight, hasBlockLight, (LevelLightEngine) (Object) this);
+        }
         // intentionally destroy mods hooking into old light engine state
         this.blockEngine = null;
         this.skyEngine = null;
@@ -136,9 +142,7 @@ public abstract class LevelLightEngineMixin implements LightEventListener, StarL
      */
     @Overwrite
     public void queueSectionData(final LightLayer lightType, final SectionPos pos, @Nullable final DataLayer nibble,
-                                 final boolean trustEdges) {
-
-    }
+                                 final boolean trustEdges) {}
 
     /**
      * @reason Avoid messing with the vanilla light engine state
@@ -156,9 +160,7 @@ public abstract class LevelLightEngineMixin implements LightEventListener, StarL
     @Overwrite
     public int getRawBrightness(final BlockPos pos, final int ambientDarkness) {
         // need to use new light hooks for this
-        final int sky = this.lightEngine.getSkyReader().getLightValue(pos) - ambientDarkness;
-        final int block = this.lightEngine.getBlockReader().getLightValue(pos);
-        return Math.max(sky, block);
+        return this.lightEngine.getRawBrightness(pos, ambientDarkness);
     }
 
     @Unique
